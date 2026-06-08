@@ -56,6 +56,13 @@ export default class ColorTabPlugin extends Plugin {
 			)
 		);
 
+		// Clear/apply color when a new file is loaded into any leaf
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () =>
+				this.applyAllColors()
+			)
+		);
+
 		this.app.workspace.onLayoutReady(() => this.applyAllColors());
 	}
 
@@ -122,9 +129,8 @@ export default class ColorTabPlugin extends Plugin {
 	applyAllColors() {
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			const path = this.getFilePath(leaf);
-			if (path && this.settings.fileColors[path]) {
-				this.applyColorToLeaf(leaf, this.settings.fileColors[path]);
-			}
+			const color = path ? (this.settings.fileColors[path] ?? null) : null;
+			this.applyColorToLeaf(leaf, color);
 		});
 	}
 
