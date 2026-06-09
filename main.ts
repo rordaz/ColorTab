@@ -89,6 +89,12 @@ export default class ColorTabPlugin extends Plugin {
 			item.setIcon("x");
 			item.onClick(() => this.removeTabColor(leaf));
 		});
+
+		menu.addItem((item) => {
+			item.setTitle("Remove all tabs' color");
+			item.setIcon("x-circle");
+			item.onClick(() => this.removeAllTabColors());
+		});
 	}
 
 	// ── Color application ─────────────────────────────────────────────────────
@@ -109,6 +115,14 @@ export default class ColorTabPlugin extends Plugin {
 			this.saveSettings();
 		}
 		this.applyColorToLeaf(leaf, null);
+	}
+
+	removeAllTabColors() {
+		this.settings.fileColors = {};
+		this.saveSettings();
+		this.app.workspace.iterateAllLeaves((leaf) =>
+			this.applyColorToLeaf(leaf, null)
+		);
 	}
 
 	applyColorToLeaf(leaf: WorkspaceLeaf, color: string | null) {
