@@ -16,6 +16,7 @@ interface ColorTabSettings {
 	colors: ColorEntry[];
 	/** Maps file path → hex color */
 	fileColors: Record<string, string>;
+	autoPinColoredTabs: boolean;
 }
 
 const DEFAULT_COLORS: ColorEntry[] = [
@@ -29,6 +30,7 @@ const DEFAULT_COLORS: ColorEntry[] = [
 const DEFAULT_SETTINGS: ColorTabSettings = {
 	colors: DEFAULT_COLORS,
 	fileColors: {},
+	autoPinColoredTabs: true,
 };
 
 export default class ColorTabPlugin extends Plugin {
@@ -106,6 +108,9 @@ export default class ColorTabPlugin extends Plugin {
 			this.saveSettings();
 		}
 		this.applyColorToLeaf(leaf, color);
+		if (this.settings.autoPinColoredTabs) {
+			leaf.setPinned(true);
+		}
 	}
 
 	removeTabColor(leaf: WorkspaceLeaf) {
@@ -115,14 +120,26 @@ export default class ColorTabPlugin extends Plugin {
 			this.saveSettings();
 		}
 		this.applyColorToLeaf(leaf, null);
+		if (this.settings.autoPinColoredTabs) {
+			leaf.setPinned(false);
+		}
 	}
 
 	removeAllTabColors() {
+		const coloredPaths = new Set(Object.keys(this.settings.fileColors));
 		this.settings.fileColors = {};
 		this.saveSettings();
-		this.app.workspace.iterateAllLeaves((leaf) =>
-			this.applyColorToLeaf(leaf, null)
-		);
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			this.applyColorToLeaf(leaf, null);
+			const path = this.getFilePath(leaf);
+			if (
+				this.settings.autoPinColoredTabs &&
+				path &&
+				coloredPaths.has(path)
+			) {
+				leaf.setPinned(false);
+			}
+		});
 	}
 
 	applyColorToLeaf(leaf: WorkspaceLeaf, color: string | null) {
@@ -145,6 +162,9 @@ export default class ColorTabPlugin extends Plugin {
 			const path = this.getFilePath(leaf);
 			const color = path ? (this.settings.fileColors[path] ?? null) : null;
 			this.applyColorToLeaf(leaf, color);
+			if (this.settings.autoPinColoredTabs && color) {
+				leaf.setPinned(true);
+			}
 		});
 	}
 
@@ -163,6 +183,7 @@ export default class ColorTabPlugin extends Plugin {
 		this.settings = {
 			colors: saved?.colors ?? DEFAULT_COLORS.map((c) => ({ ...c })),
 			fileColors: saved?.fileColors ?? {},
+			autoPinColoredTabs: saved?.autoPinColoredTabs ?? DEFAULT_SETTINGS.autoPinColoredTabs,
 		};
 	}
 
@@ -230,6 +251,21 @@ class ColorTabSettingTab extends PluginSettingTab {
 		});
 
 		new Setting(containerEl)
+			.setName("Auto-pin colored tabs")
+			.setDesc(
+				"When enabled, applying a tab color pins the tab and removing color unpins it."
+			)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.autoPinColoredTabs)
+					.onChange(async (value) => {
+						this.plugin.settings.autoPinColoredTabs = value;
+						await this.plugin.saveSettings();
+						this.plugin.applyAllColors();
+					});
+			});
+
+		new Setting(containerEl)
 			.setName("Reset to defaults")
 			.setDesc("Restore the original pastel color palette.")
 			.addButton((btn) => {
@@ -239,6 +275,8 @@ class ColorTabSettingTab extends PluginSettingTab {
 						this.plugin.settings.colors = DEFAULT_COLORS.map(
 							(c) => ({ ...c })
 						);
+						this.plugin.settings.autoPinColoredTabs =
+							DEFAULT_SETTINGS.autoPinColoredTabs;
 						await this.plugin.saveSettings();
 						this.plugin.applyAllColors();
 						this.display();
