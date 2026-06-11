@@ -65,7 +65,44 @@ export default class ColorTabPlugin extends Plugin {
 			)
 		);
 
-		this.app.workspace.onLayoutReady(() => this.applyAllColors());
+		this.app.workspace.onLayoutReady(() => {
+			this.applyAllColors();
+			this.registerColorCommands();
+		});
+	}
+
+	// ── Commands (hotkeys) ────────────────────────────────────────────────────
+
+	private registerColorCommands() {
+		this.settings.colors.forEach(({ name, color }) => {
+			this.addCommand({
+				id: `color-tab-set-${name.toLowerCase().replace(/\s+/g, "-")}`,
+				name: `Set tab color: ${name}`,
+				checkCallback: (checking: boolean) => {
+					const leaf = this.app.workspace.activeLeaf;
+					if (!leaf || !this.isColorableLeaf(leaf)) return false;
+					if (!checking) this.setTabColor(leaf, color);
+					return true;
+				},
+			});
+		});
+
+		this.addCommand({
+			id: "color-tab-remove",
+			name: "Remove tab color",
+			checkCallback: (checking: boolean) => {
+				const leaf = this.app.workspace.activeLeaf;
+				if (!leaf || !this.isColorableLeaf(leaf)) return false;
+				if (!checking) this.removeTabColor(leaf);
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "color-tab-remove-all",
+			name: "Remove all tabs' color",
+			callback: () => this.removeAllTabColors(),
+		});
 	}
 
 	// ── Context menu ──────────────────────────────────────────────────────────
