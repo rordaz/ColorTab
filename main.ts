@@ -165,22 +165,22 @@ export default class ColorTabPlugin extends Plugin {
 
 	applyAllColors() {
 		this.app.workspace.iterateAllLeaves((leaf) => {
-			const path = this.getFilePath(leaf);
-			const tabHeader = (
-				leaf as unknown as { tabHeaderEl?: HTMLElement }
-			).tabHeaderEl;
-			const wasAccidentallyColoredNonFileLeaf =
-				!path && !!tabHeader?.classList.contains("color-tab-colored");
-			const color = path ? (this.settings.fileColors[path] ?? null) : null;
+			if (!this.isColorableLeaf(leaf)) {
+				// Strip any color/pin previously applied by this plugin to sidebar leaves
+				const tabHeader = (
+					leaf as unknown as { tabHeaderEl?: HTMLElement }
+				).tabHeaderEl;
+				if (tabHeader?.classList.contains("color-tab-colored")) {
+					this.applyColorToLeaf(leaf, null);
+					if (this.settings.autoPinColoredTabs) leaf.setPinned(false);
+				}
+				return;
+			}
+			const path = this.getFilePath(leaf)!;
+			const color = this.settings.fileColors[path] ?? null;
 			this.applyColorToLeaf(leaf, color);
 			if (this.settings.autoPinColoredTabs && color) {
 				leaf.setPinned(true);
-			}
-			if (
-				this.settings.autoPinColoredTabs &&
-				wasAccidentallyColoredNonFileLeaf
-			) {
-				leaf.setPinned(false);
 			}
 		});
 	}
@@ -194,7 +194,13 @@ export default class ColorTabPlugin extends Plugin {
 	}
 
 	private isColorableLeaf(leaf: WorkspaceLeaf): boolean {
-		return this.getFilePath(leaf) !== null;
+		if (this.getFilePath(leaf) === null) return false;
+		// Only color leaves in the main editor area, not left/right sidebars.
+		// Outline, File Properties, Backlinks, etc. are file-aware sidebar views
+		// that share the same leaf.view.file — they must be excluded.
+		const root = leaf.getRoot();
+		const ws = this.app.workspace as unknown as { rootSplit: unknown };
+		return root === ws.rootSplit;
 	}
 
 	// ── Settings persistence ──────────────────────────────────────────────────
