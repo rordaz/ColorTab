@@ -34,7 +34,7 @@ const DEFAULT_SETTINGS: ColorTabSettings = {
 };
 
 export default class ColorTabPlugin extends Plugin {
-	settings: ColorTabSettings;
+	settings!: ColorTabSettings;
 
 	async onload() {
 		await this.loadSettings();
@@ -71,6 +71,8 @@ export default class ColorTabPlugin extends Plugin {
 	// ── Context menu ──────────────────────────────────────────────────────────
 
 	private addColorMenuItems(menu: Menu, leaf: WorkspaceLeaf) {
+		if (!this.isColorableLeaf(leaf)) return;
+
 		menu.addSeparator();
 
 		this.settings.colors.forEach(({ name, color }) => {
@@ -102,6 +104,8 @@ export default class ColorTabPlugin extends Plugin {
 	// ── Color application ─────────────────────────────────────────────────────
 
 	setTabColor(leaf: WorkspaceLeaf, color: string) {
+		if (!this.isColorableLeaf(leaf)) return;
+
 		const path = this.getFilePath(leaf);
 		if (path) {
 			this.settings.fileColors[path] = color;
@@ -114,6 +118,8 @@ export default class ColorTabPlugin extends Plugin {
 	}
 
 	removeTabColor(leaf: WorkspaceLeaf) {
+		if (!this.isColorableLeaf(leaf)) return;
+
 		const path = this.getFilePath(leaf);
 		if (path) {
 			delete this.settings.fileColors[path];
@@ -160,10 +166,21 @@ export default class ColorTabPlugin extends Plugin {
 	applyAllColors() {
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			const path = this.getFilePath(leaf);
+			const tabHeader = (
+				leaf as unknown as { tabHeaderEl?: HTMLElement }
+			).tabHeaderEl;
+			const wasAccidentallyColoredNonFileLeaf =
+				!path && !!tabHeader?.classList.contains("color-tab-colored");
 			const color = path ? (this.settings.fileColors[path] ?? null) : null;
 			this.applyColorToLeaf(leaf, color);
 			if (this.settings.autoPinColoredTabs && color) {
 				leaf.setPinned(true);
+			}
+			if (
+				this.settings.autoPinColoredTabs &&
+				wasAccidentallyColoredNonFileLeaf
+			) {
+				leaf.setPinned(false);
 			}
 		});
 	}
@@ -174,6 +191,10 @@ export default class ColorTabPlugin extends Plugin {
 		const file = (leaf.view as unknown as { file?: { path: string } })
 			?.file;
 		return file?.path ?? null;
+	}
+
+	private isColorableLeaf(leaf: WorkspaceLeaf): boolean {
+		return this.getFilePath(leaf) !== null;
 	}
 
 	// ── Settings persistence ──────────────────────────────────────────────────
