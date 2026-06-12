@@ -277,40 +277,69 @@ class ColorTabSettingTab extends PluginSettingTab {
 		});
 
 		this.plugin.settings.colors.forEach((entry, index) => {
+			let hexInputEl: HTMLInputElement;
+			let colorPickerEl: HTMLInputElement;
+			let swatchEl: HTMLSpanElement;
+
 			const setting = new Setting(containerEl)
 				.setName(`Color ${index + 1}`)
+				// ── Meaning / name field ──────────────────────────────────
 				.addText((text) => {
-					text.setPlaceholder("Name")
+					text.setPlaceholder("Meaning")
 						.setValue(entry.name)
 						.onChange(async (value) => {
 							this.plugin.settings.colors[index].name = value;
 							await this.plugin.saveSettings();
 						});
-					text.inputEl.style.width = "140px";
+					text.inputEl.style.width = "120px";
+					text.inputEl.setAttribute("aria-label", "Color meaning / name");
 				})
+				// ── Hex code text input ───────────────────────────────────
+				.addText((hex) => {
+					hex.setPlaceholder("#rrggbb")
+						.setValue(entry.color)
+						.onChange(async (value) => {
+							const normalized = value.trim();
+							if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) return;
+							this.plugin.settings.colors[index].color = normalized;
+							await this.plugin.saveSettings();
+							this.plugin.applyAllColors();
+							if (colorPickerEl) colorPickerEl.value = normalized;
+							if (swatchEl) swatchEl.style.backgroundColor = normalized;
+						});
+					hex.inputEl.style.width = "88px";
+					hex.inputEl.style.fontFamily = "monospace";
+					hex.inputEl.setAttribute("aria-label", "Hex color code");
+					hexInputEl = hex.inputEl;
+				})
+				// ── Color picker ──────────────────────────────────────────
 				.addColorPicker((picker) => {
 					picker
 						.setValue(entry.color)
 						.onChange(async (value) => {
 							this.plugin.settings.colors[index].color = value;
 							await this.plugin.saveSettings();
-							// Re-apply updated colors live
 							this.plugin.applyAllColors();
+							if (hexInputEl) hexInputEl.value = value;
+							if (swatchEl) swatchEl.style.backgroundColor = value;
 						});
 				});
 
-			// Live swatch preview next to the controls
-			const swatch = setting.controlEl.createEl("span", {
+			// Live swatch preview
+			swatchEl = setting.controlEl.createEl("span", {
 				cls: "color-tab-settings-swatch",
 			});
-			swatch.style.backgroundColor = entry.color;
+			swatchEl.style.backgroundColor = entry.color;
 
-			// Keep swatch in sync when picker changes
-			const picker = setting.controlEl.querySelector(
+			// Grab the native <input type="color"> for cross-sync
+			colorPickerEl = setting.controlEl.querySelector(
 				"input[type=color]"
-			) as HTMLInputElement | null;
-			picker?.addEventListener("input", () => {
-				swatch.style.backgroundColor = picker.value;
+			) as HTMLInputElement;
+
+			// Keep hex field in sync when the native picker is dragged
+			colorPickerEl?.addEventListener("input", () => {
+				if (hexInputEl) hexInputEl.value = colorPickerEl.value;
+				if (swatchEl) swatchEl.style.backgroundColor = colorPickerEl.value;
 			});
 		});
 
