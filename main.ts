@@ -76,7 +76,7 @@ export default class ColorTabPlugin extends Plugin {
 	private registerColorCommands() {
 		this.settings.colors.forEach(({ name, color }) => {
 			this.addCommand({
-				id: `color-tab-set-${name.toLowerCase().replace(/\s+/g, "-")}`,
+				id: `set-${name.toLowerCase().replace(/\s+/g, "-")}`,			
 				name: `Set tab color: ${name}`,
 				checkCallback: (checking: boolean) => {
 					const leaf = this.app.workspace.activeLeaf;
@@ -88,7 +88,7 @@ export default class ColorTabPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: "color-tab-remove",
+			id: "remove",
 			name: "Remove tab color",
 			checkCallback: (checking: boolean) => {
 				const leaf = this.app.workspace.activeLeaf;
@@ -99,7 +99,7 @@ export default class ColorTabPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: "color-tab-remove-all",
+			id: "remove-all",
 			name: "Remove all tabs' color",
 			callback: () => this.removeAllTabColors(),
 		});
