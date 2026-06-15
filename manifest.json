@@ -3,8 +3,8 @@
   "name": "Color Tab",
   "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "Change the background color of open tabs via right-click context menu.",
+  "description": "Colorize open tabs to visually distinguish notes at a glance, using a right-click context menu.",
   "author": "Rafael Ordaz",
-  "authorUrl": "",
-  "isDesktopOnly": false
+  "authorUrl": "https://github.com/rordaz",
+  "isDesktopOnly": true
 }

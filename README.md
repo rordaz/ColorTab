@@ -10,23 +10,31 @@ When working with several notes simultaneously — researching, cross-referencin
 
 Examples of how people use it:
 
-- 🔴 **Red** – notes that still need work or are blocking something
-- 🟡 **Yellow** – reference material you keep coming back to
-- 🟢 **Green** – notes that are done / reviewed
-- 🔵 **Blue** – the note you are actively writing
-- 🟣 **Lavender** – meeting notes or daily logs
+- 🔴 **Red** – Note you are actively writing
+- 🟢 **Green** – Reference material you keep coming back to
+- 🟡 **Yellow** – Diagrams supporting my writing
+- 🔵 **Blue** – Other useful reference notes
+- 🟣 **Lavender** – Meeting notes or daily logs
 
 ---
 
 ## How to install
 
-1. Copy `main.js`, `manifest.json`, and `styles.css` into your vault at:
+### From the Community Plugins directory (recommended)
+
+1. Open Obsidian → **Settings → Community Plugins**.
+2. Disable **Safe Mode** if prompted, then select **Browse**.
+3. Search for **Color Tab** and click **Install**.
+4. Once installed, toggle it **on**.
+
+### Manual installation
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/rordaz/ColorTab/releases/latest).
+2. Copy them into your vault at:
    ```
    <your-vault>/.obsidian/plugins/color-tab/
    ```
-2. Open Obsidian → **Settings → Community Plugins**.
-3. Disable **Safe Mode** if prompted.
-4. Find **Color Tab** in the list and toggle it **on**.
+3. Open Obsidian → **Settings → Community Plugins** and toggle **Color Tab** on.
 
 ## How to use
 
