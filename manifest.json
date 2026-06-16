@@ -1,8 +1,8 @@
 {
   "id": "color-tab",
   "name": "Color Tab",
-  "version": "1.0.0",
-  "minAppVersion": "0.15.0",
+  "version": "1.0.1",
+  "minAppVersion": "1.0.0",
   "description": "Colorize open tabs to visually distinguish notes at a glance, using a right-click context menu.",
   "author": "Rafael Ordaz",
   "authorUrl": "https://github.com/rordaz",

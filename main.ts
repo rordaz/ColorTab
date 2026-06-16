@@ -79,7 +79,7 @@ export default class ColorTabPlugin extends Plugin {
 				id: `set-${name.toLowerCase().replace(/\s+/g, "-")}`,			
 				name: `Set tab color: ${name}`,
 				checkCallback: (checking: boolean) => {
-					const leaf = this.app.workspace.activeLeaf;
+					const leaf = this.app.workspace.getMostRecentLeaf();
 					if (!leaf || !this.isColorableLeaf(leaf)) return false;
 					if (!checking) this.setTabColor(leaf, color);
 					return true;
@@ -91,7 +91,7 @@ export default class ColorTabPlugin extends Plugin {
 			id: "remove",
 			name: "Remove tab color",
 			checkCallback: (checking: boolean) => {
-				const leaf = this.app.workspace.activeLeaf;
+				const leaf = this.app.workspace.getMostRecentLeaf();
 				if (!leaf || !this.isColorableLeaf(leaf)) return false;
 				if (!checking) this.removeTabColor(leaf);
 				return true;
@@ -146,7 +146,7 @@ export default class ColorTabPlugin extends Plugin {
 		const path = this.getFilePath(leaf);
 		if (path) {
 			this.settings.fileColors[path] = color;
-			this.saveSettings();
+				void this.saveSettings();
 		}
 		this.applyColorToLeaf(leaf, color);
 		if (this.settings.autoPinColoredTabs) {
@@ -160,7 +160,7 @@ export default class ColorTabPlugin extends Plugin {
 		const path = this.getFilePath(leaf);
 		if (path) {
 			delete this.settings.fileColors[path];
-			this.saveSettings();
+				void this.saveSettings();
 		}
 		this.applyColorToLeaf(leaf, null);
 		if (this.settings.autoPinColoredTabs) {
@@ -171,7 +171,7 @@ export default class ColorTabPlugin extends Plugin {
 	removeAllTabColors() {
 		const coloredPaths = new Set(Object.keys(this.settings.fileColors));
 		this.settings.fileColors = {};
-		this.saveSettings();
+		void this.saveSettings();
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			this.applyColorToLeaf(leaf, null);
 			const path = this.getFilePath(leaf);
@@ -243,7 +243,7 @@ export default class ColorTabPlugin extends Plugin {
 	// ── Settings persistence ──────────────────────────────────────────────────
 
 	async loadSettings() {
-		const saved = await this.loadData();
+		const saved = await this.loadData() as Partial<ColorTabSettings> | null;
 		this.settings = {
 			colors: saved?.colors ?? DEFAULT_COLORS.map((c) => ({ ...c })),
 			fileColors: saved?.fileColors ?? {},
@@ -270,11 +270,10 @@ class ColorTabSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Color Tab – Settings" });
-		containerEl.createEl("p", {
-			text: "Customize the 5 colors shown in the tab context menu.",
-			cls: "color-tab-settings-desc",
-		});
+		new Setting(containerEl)
+			.setName("Color Tab – Settings")
+			.setHeading()
+			.setDesc("Customize the 5 colors shown in the tab context menu.");
 
 		this.plugin.settings.colors.forEach((entry, index) => {
 			let hexInputEl: HTMLInputElement;
@@ -291,7 +290,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 							this.plugin.settings.colors[index].name = value;
 							await this.plugin.saveSettings();
 						});
-					text.inputEl.style.width = "120px";
+					text.inputEl.setCssStyles({ width: "120px" });
 					text.inputEl.setAttribute("aria-label", "Color meaning / name");
 				})
 				// ── Hex code text input ───────────────────────────────────
@@ -307,8 +306,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 							if (colorPickerEl) colorPickerEl.value = normalized;
 							if (swatchEl) swatchEl.style.backgroundColor = normalized;
 						});
-					hex.inputEl.style.width = "88px";
-					hex.inputEl.style.fontFamily = "monospace";
+					hex.inputEl.setCssStyles({ width: "88px", fontFamily: "monospace" });
 					hex.inputEl.setAttribute("aria-label", "Hex color code");
 					hexInputEl = hex.inputEl;
 				})
@@ -363,7 +361,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 			.setDesc("Restore the original pastel color palette.")
 			.addButton((btn) => {
 				btn.setButtonText("Reset")
-					.setWarning()
+					.setDestructive()
 					.onClick(async () => {
 						this.plugin.settings.colors = DEFAULT_COLORS.map(
 							(c) => ({ ...c })

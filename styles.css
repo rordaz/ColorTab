@@ -1,7 +1,7 @@
 /* ── Tab background coloring ──────────────────────────────────────────────── */
 
-.workspace-tab-header.color-tab-colored {
-  background-color: var(--tab-bg-color) !important;
+.workspace-tab-header.color-tab-colored.color-tab-colored {
+  background-color: var(--tab-bg-color);
   transition: background-color 0.2s ease;
 }
 
@@ -15,8 +15,8 @@
 }
 
 /* Active (focused) colored tab – keep color but add a subtle indicator */
-.workspace-tab-header.color-tab-colored.is-active {
-  background-color: var(--tab-bg-color) !important;
+.workspace-tab-header.color-tab-colored.is-active.color-tab-colored {
+  background-color: var(--tab-bg-color);
   filter: brightness(0.88);
 }
 
