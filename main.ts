@@ -270,14 +270,117 @@ class ColorTabSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	// Override so the toggle's setControlValue also re-applies colors
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		await super.setControlValue(key, value);
+		this.plugin.applyAllColors();
+	}
+
+	// Primary: used by Obsidian 1.13.0+. When this returns a non-empty array,
+	// display() is not called by the framework.
+	getSettingDefinitions() {
+		const colorRows = this.plugin.settings.colors.map((entry, index) => ({
+			name: `Color ${index + 1}`,
+			render: (setting: Setting) => {
+				let hexInputEl: HTMLInputElement;
+				let colorPickerEl: HTMLInputElement;
+				let swatchEl: HTMLSpanElement;
+
+				setting
+					// ── Meaning / name field ──────────────────────────────
+					.addText((text) => {
+						text.setPlaceholder("Meaning")
+							.setValue(entry.name)
+							.onChange(async (value) => {
+								this.plugin.settings.colors[index].name = value;
+								await this.plugin.saveSettings();
+							});
+						text.inputEl.setCssStyles({ width: "120px" });
+						text.inputEl.setAttribute("aria-label", "Color meaning / name");
+					})
+					// ── Hex code text input ───────────────────────────────
+					.addText((hex) => {
+						hex.setPlaceholder("#rrggbb")
+							.setValue(entry.color)
+							.onChange(async (value) => {
+								const normalized = value.trim();
+								if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) return;
+								this.plugin.settings.colors[index].color = normalized;
+								await this.plugin.saveSettings();
+								this.plugin.applyAllColors();
+								if (colorPickerEl) colorPickerEl.value = normalized;
+								if (swatchEl) swatchEl.style.backgroundColor = normalized;
+							});
+						hex.inputEl.setCssStyles({ width: "88px", fontFamily: "monospace" });
+						hex.inputEl.setAttribute("aria-label", "Hex color code");
+						hexInputEl = hex.inputEl;
+					})
+					// ── Color picker ──────────────────────────────────────
+					.addColorPicker((picker) => {
+						picker
+							.setValue(entry.color)
+							.onChange(async (value) => {
+								this.plugin.settings.colors[index].color = value;
+								await this.plugin.saveSettings();
+								this.plugin.applyAllColors();
+								if (hexInputEl) hexInputEl.value = value;
+								if (swatchEl) swatchEl.style.backgroundColor = value;
+							});
+					});
+
+				// Live swatch preview
+				swatchEl = setting.controlEl.createEl("span", {
+					cls: "color-tab-settings-swatch",
+				});
+				swatchEl.style.backgroundColor = entry.color;
+
+				// Grab the native <input type="color"> for cross-sync
+				colorPickerEl = setting.controlEl.querySelector(
+					"input[type=color]"
+				) as HTMLInputElement;
+
+				colorPickerEl?.addEventListener("input", () => {
+					if (hexInputEl) hexInputEl.value = colorPickerEl.value;
+					if (swatchEl) swatchEl.style.backgroundColor = colorPickerEl.value;
+				});
+			},
+		}));
+
+		return [
+			...colorRows,
+			{
+				name: "Auto-pin colored tabs",
+				desc: "When enabled, applying a tab color pins the tab and removing color unpins it.",
+				control: { type: "toggle" as const, key: "autoPinColoredTabs" },
+			},
+			{
+				name: "Reset to defaults",
+				desc: "Restore the original pastel color palette.",
+				render: (setting: Setting) => {
+					setting.addButton((btn) => {
+						btn.setButtonText("Reset")
+							.setDestructive()
+							.onClick(async () => {
+								this.plugin.settings.colors = DEFAULT_COLORS.map(
+									(c) => ({ ...c })
+								);
+								this.plugin.settings.autoPinColoredTabs =
+									DEFAULT_SETTINGS.autoPinColoredTabs;
+								await this.plugin.saveSettings();
+								this.plugin.applyAllColors();
+								this.update();
+							});
+					});
+				},
+			},
+		];
+	}
+
+	// Fallback for Obsidian < 1.13.0 (not called when getSettingDefinitions
+	// returns a non-empty array on 1.13.0+).
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName("Color Tab – Settings")
-			.setHeading()
-			.setDesc("Customize the 5 colors shown in the tab context menu.");
 
 		this.plugin.settings.colors.forEach((entry, index) => {
 			let hexInputEl: HTMLInputElement;
@@ -338,7 +441,6 @@ class ColorTabSettingTab extends PluginSettingTab {
 				"input[type=color]"
 			) as HTMLInputElement;
 
-			// Keep hex field in sync when the native picker is dragged
 			colorPickerEl?.addEventListener("input", () => {
 				if (hexInputEl) hexInputEl.value = colorPickerEl.value;
 				if (swatchEl) swatchEl.style.backgroundColor = colorPickerEl.value;
@@ -365,7 +467,6 @@ class ColorTabSettingTab extends PluginSettingTab {
 			.setDesc("Restore the original pastel color palette.")
 			.addButton((btn) => {
 				btn.setButtonText("Reset")
-					.setDestructive()
 					.onClick(async () => {
 						this.plugin.settings.colors = DEFAULT_COLORS.map(
 							(c) => ({ ...c })

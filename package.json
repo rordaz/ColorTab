@@ -1,6 +1,6 @@
 {
   "name": "color-tab",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Obsidian plugin to colorize open tabs",
   "main": "main.js",
   "scripts": {
