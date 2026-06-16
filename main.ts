@@ -232,12 +232,16 @@ export default class ColorTabPlugin extends Plugin {
 
 	private isColorableLeaf(leaf: WorkspaceLeaf): boolean {
 		if (this.getFilePath(leaf) === null) return false;
-		// Only color leaves in the main editor area, not left/right sidebars.
-		// Outline, File Properties, Backlinks, etc. are file-aware sidebar views
-		// that share the same leaf.view.file — they must be excluded.
+		// Exclude sidebar leaves (Outline, File Properties, Backlinks, etc.)
+		// which are file-aware but must not be colored.
+		// Allow leaves in the main window AND in any popout window.
 		const root = leaf.getRoot();
-		const ws = this.app.workspace as unknown as { rootSplit: unknown };
-		return root === ws.rootSplit;
+		const ws = this.app.workspace as unknown as {
+			leftSplit: unknown;
+			rightSplit: unknown;
+		};
+		if (root === ws.leftSplit || root === ws.rightSplit) return false;
+		return true;
 	}
 
 	// ── Settings persistence ──────────────────────────────────────────────────
