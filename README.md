@@ -54,8 +54,9 @@ Examples of how people use it:
 
 1. Go to **Settings → Color Tab**.
 2. Each of the 5 color slots has a **name field** and a **color picker**.
-3. Changes take effect immediately — open tabs update live.
-4. Click **Reset** to restore the default pastel palette.
+3. Toggle **Prevent Tab Duplication** to keep only one tab per file.
+4. Changes take effect immediately — open tabs update live.
+5. Click **Reset** to restore the default pastel palette.
 
 ## Default colors
 

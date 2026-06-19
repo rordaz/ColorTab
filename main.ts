@@ -17,6 +17,7 @@ interface ColorTabSettings {
 	/** Maps file path → hex color */
 	fileColors: Record<string, string>;
 	autoPinColoredTabs: boolean;
+	preventTabDuplication: boolean;
 }
 
 const DEFAULT_COLORS: ColorEntry[] = [
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS: ColorTabSettings = {
 	colors: DEFAULT_COLORS,
 	fileColors: {},
 	autoPinColoredTabs: true,
+	preventTabDuplication: true,
 };
 
 export default class ColorTabPlugin extends Plugin {
@@ -53,20 +55,29 @@ export default class ColorTabPlugin extends Plugin {
 
 		// Re-apply stored colors whenever the layout changes
 		this.registerEvent(
-			this.app.workspace.on("layout-change", () =>
-				this.applyAllColors()
-			)
+			this.app.workspace.on("layout-change", () => {
+				this.applyAllColors();
+				if (this.settings.preventTabDuplication) {
+					this.handleDuplicateTabs();
+				}
+			})
 		);
 
 		// Clear/apply color when a new file is loaded into any leaf
 		this.registerEvent(
-			this.app.workspace.on("active-leaf-change", () =>
-				this.applyAllColors()
-			)
+			this.app.workspace.on("active-leaf-change", () => {
+				this.applyAllColors();
+				if (this.settings.preventTabDuplication) {
+					this.handleDuplicateTabs();
+				}
+			})
 		);
 
 		this.app.workspace.onLayoutReady(() => {
 			this.applyAllColors();
+			if (this.settings.preventTabDuplication) {
+				this.handleDuplicateTabs();
+			}
 			this.registerColorCommands();
 		});
 	}
@@ -222,6 +233,45 @@ export default class ColorTabPlugin extends Plugin {
 		});
 	}
 
+	// ── Tab duplication prevention ────────────────────────────────────────────
+
+	/**
+	 * Detects and handles duplicate tabs (same file open in multiple tabs).
+	 * Closes duplicate tabs and focuses on the first instance.
+	 * Works with both regular and colored (pinned) tabs.
+	 */
+	private handleDuplicateTabs() {
+		const filePathMap = new Map<string, WorkspaceLeaf[]>();
+
+		// Build a map of file paths to their corresponding leaves
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			const path = this.getFilePath(leaf);
+			if (path) {
+				if (!filePathMap.has(path)) {
+					filePathMap.set(path, []);
+				}
+				filePathMap.get(path)!.push(leaf);
+			}
+		});
+
+		// For each file with duplicates, keep the first and close the rest
+		filePathMap.forEach((leaves) => {
+			if (leaves.length > 1) {
+				// Keep the first leaf and focus on it
+				const firstLeaf = leaves[0];
+				this.app.workspace.setActiveLeaf(firstLeaf);
+
+				// Close the duplicate leaves
+				for (let i = 1; i < leaves.length; i++) {
+					const duplicateLeaf = leaves[i];
+					// Unpin the duplicate tab before closing it (important for colored tabs)
+					duplicateLeaf.setPinned(false);
+					duplicateLeaf.detach();
+				}
+			}
+		});
+	}
+
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
 	private getFilePath(leaf: WorkspaceLeaf): string | null {
@@ -252,6 +302,7 @@ export default class ColorTabPlugin extends Plugin {
 			colors: saved?.colors ?? DEFAULT_COLORS.map((c) => ({ ...c })),
 			fileColors: saved?.fileColors ?? {},
 			autoPinColoredTabs: saved?.autoPinColoredTabs ?? DEFAULT_SETTINGS.autoPinColoredTabs,
+			preventTabDuplication: saved?.preventTabDuplication ?? DEFAULT_SETTINGS.preventTabDuplication,
 		};
 	}
 
@@ -354,6 +405,11 @@ class ColorTabSettingTab extends PluginSettingTab {
 				control: { type: "toggle" as const, key: "autoPinColoredTabs" },
 			},
 			{
+				name: "Prevent Tab Duplication",
+				desc: "When enabled, opening an already-open file will focus on the existing tab instead of creating a duplicate.",
+				control: { type: "toggle" as const, key: "preventTabDuplication" },
+			},
+			{
 				name: "Reset to defaults",
 				desc: "Restore the original pastel color palette.",
 				render: (setting: Setting) => {
@@ -366,6 +422,8 @@ class ColorTabSettingTab extends PluginSettingTab {
 								);
 								this.plugin.settings.autoPinColoredTabs =
 									DEFAULT_SETTINGS.autoPinColoredTabs;
+								this.plugin.settings.preventTabDuplication =
+									DEFAULT_SETTINGS.preventTabDuplication;
 								await this.plugin.saveSettings();
 								this.plugin.applyAllColors();
 								this.update();
@@ -374,6 +432,121 @@ class ColorTabSettingTab extends PluginSettingTab {
 				},
 			},
 		];
+	}
+
+	// Fallback for Obsidian versions that do not consume getSettingDefinitions.
+	display() {
+		const { containerEl } = this;
+		containerEl.empty();
+
+		this.plugin.settings.colors.forEach((entry, index) => {
+			let hexInputEl: HTMLInputElement;
+			let colorPickerEl: HTMLInputElement;
+			let swatchEl: HTMLSpanElement;
+
+			const setting = new Setting(containerEl)
+				.setName(`Color ${index + 1}`)
+				.addText((text) => {
+					text.setPlaceholder("Meaning")
+						.setValue(entry.name)
+						.onChange(async (value) => {
+							this.plugin.settings.colors[index].name = value;
+							await this.plugin.saveSettings();
+						});
+					text.inputEl.setCssStyles({ width: "120px" });
+					text.inputEl.setAttribute("aria-label", "Color meaning / name");
+				})
+				.addText((hex) => {
+					hex.setPlaceholder("#rrggbb")
+						.setValue(entry.color)
+						.onChange(async (value) => {
+							const normalized = value.trim();
+							if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) return;
+							this.plugin.settings.colors[index].color = normalized;
+							await this.plugin.saveSettings();
+							this.plugin.applyAllColors();
+							if (colorPickerEl) colorPickerEl.value = normalized;
+							if (swatchEl) swatchEl.style.backgroundColor = normalized;
+						});
+					hex.inputEl.setCssStyles({ width: "88px", fontFamily: "monospace" });
+					hex.inputEl.setAttribute("aria-label", "Hex color code");
+					hexInputEl = hex.inputEl;
+				})
+				.addColorPicker((picker) => {
+					picker
+						.setValue(entry.color)
+						.onChange(async (value) => {
+							this.plugin.settings.colors[index].color = value;
+							await this.plugin.saveSettings();
+							this.plugin.applyAllColors();
+							if (hexInputEl) hexInputEl.value = value;
+							if (swatchEl) swatchEl.style.backgroundColor = value;
+						});
+				});
+
+			swatchEl = setting.controlEl.createEl("span", {
+				cls: "color-tab-settings-swatch",
+			});
+			swatchEl.style.backgroundColor = entry.color;
+
+			colorPickerEl = setting.controlEl.querySelector(
+				"input[type=color]"
+			) as HTMLInputElement;
+
+			colorPickerEl?.addEventListener("input", () => {
+				if (hexInputEl) hexInputEl.value = colorPickerEl.value;
+				if (swatchEl) swatchEl.style.backgroundColor = colorPickerEl.value;
+			});
+		});
+
+		new Setting(containerEl)
+			.setName("Auto-pin colored tabs")
+			.setDesc(
+				"When enabled, applying a tab color pins the tab and removing color unpins it."
+			)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.autoPinColoredTabs)
+					.onChange(async (value) => {
+						this.plugin.settings.autoPinColoredTabs = value;
+						await this.plugin.saveSettings();
+						this.plugin.applyAllColors();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Prevent Tab Duplication")
+			.setDesc(
+				"When enabled, opening an already-open file will focus on the existing tab instead of creating a duplicate."
+			)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.preventTabDuplication)
+					.onChange(async (value) => {
+						this.plugin.settings.preventTabDuplication = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Reset to defaults")
+			.setDesc("Restore the original pastel color palette.")
+			.addButton((btn) => {
+				btn.setButtonText("Reset")
+					.setDestructive()
+					.onClick(async () => {
+						this.plugin.settings.colors = DEFAULT_COLORS.map(
+							(c) => ({ ...c })
+						);
+						this.plugin.settings.autoPinColoredTabs =
+							DEFAULT_SETTINGS.autoPinColoredTabs;
+						this.plugin.settings.preventTabDuplication =
+							DEFAULT_SETTINGS.preventTabDuplication;
+						await this.plugin.saveSettings();
+						this.plugin.applyAllColors();
+						this.display();
+					});
+			});
 	}
 
 }
