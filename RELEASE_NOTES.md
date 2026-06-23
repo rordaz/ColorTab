@@ -1,6 +1,14 @@
 # Release Notes
 
-## [1.1.1] - 2026-06-22
+## [1.1.2] - 2026-06-23
+
+### ✨ Improvements
+
+- **Release Automation** – GitHub Releases now use the matching section from this repository's release notes as the published release description
+
+---
+
+## [1.1.1] - 2026-06-23
 
 ### 🐛 Fixes
 
@@ -8,6 +16,8 @@
   - Sidebar panels (Outline, File Properties, Backlinks) no longer affected
   - Local graph, graph, and other auxiliary views now properly excluded
   - Only actual document tabs (markdown/file views) are now colored and managed
+- **Excalidraw Tab Support** – Fixed issue where Excalidraw files could not be colored or managed by the plugin
+  - Excalidraw tabs now use the same tab coloring and pinning logic as regular document tabs
 
 ---
 
