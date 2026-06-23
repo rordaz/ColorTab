@@ -32,11 +32,21 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
+      - name: Extract release notes
+        run: |
+          awk -v version="${GITHUB_REF_NAME}" '
+            BEGIN { capture = 0 }
+            $0 ~ "^## \\[" version "\\]" { capture = 1 }
+            capture && /^---$/ { exit }
+            capture { print }
+          ' RELEASE_NOTES.md > release-notes-body.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: ${{ steps.version.outputs.version }}
+          body_path: release-notes-body.md
           draft: false
           prerelease: false
           files: |
