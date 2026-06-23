@@ -48,6 +48,15 @@ export default class ColorTabPlugin extends Plugin {
 				"file-menu",
 				(menu, _file, source, leaf) => {
 					if (source !== "tab-header" || !leaf) return;
+					console.log("[ColorTab DEBUG]", {
+						source,
+						filePath: this.getFilePath(leaf),
+						viewType: leaf.getViewState().type,
+						isColorable: this.isColorableLeaf(leaf),
+						root: leaf.getRoot(),
+						wsLeftSplit: (this.app.workspace as unknown as { leftSplit: unknown }).leftSplit,
+						wsRightSplit: (this.app.workspace as unknown as { rightSplit: unknown }).rightSplit,
+					});
 					this.addColorMenuItems(menu, leaf);
 				}
 			)
@@ -243,8 +252,11 @@ export default class ColorTabPlugin extends Plugin {
 	private handleDuplicateTabs() {
 		const filePathMap = new Map<string, WorkspaceLeaf[]>();
 
-		// Build a map of file paths to their corresponding leaves
+		// Build a map of file paths to their corresponding document leaves only.
+		// Sidebar views (Outline, File Properties, Backlinks, etc.) can be
+		// file-aware, but are not file document tabs and must never be closed.
 		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (!this.isColorableLeaf(leaf)) return;
 			const path = this.getFilePath(leaf);
 			if (path) {
 				if (!filePathMap.has(path)) {
@@ -275,9 +287,15 @@ export default class ColorTabPlugin extends Plugin {
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
 	private getFilePath(leaf: WorkspaceLeaf): string | null {
-		const file = (leaf.view as unknown as { file?: { path: string } })
+		// Try to get file from view first (most common), then from leaf directly
+		const fileFromView = (leaf.view as unknown as { file?: { path: string } })
 			?.file;
-		return file?.path ?? null;
+		if (fileFromView?.path) return fileFromView.path;
+		
+		// Fallback for view types like excalidraw that may store file directly on leaf
+		const fileFromLeaf = (leaf as unknown as { file?: { path: string } })
+			?.file;
+		return fileFromLeaf?.path ?? null;
 	}
 
 	private isColorableLeaf(leaf: WorkspaceLeaf): boolean {
@@ -291,6 +309,10 @@ export default class ColorTabPlugin extends Plugin {
 			rightSplit: unknown;
 		};
 		if (root === ws.leftSplit || root === ws.rightSplit) return false;
+		// Only color markdown/file/excalidraw document tabs, not auxiliary views
+		// (local graph, graph, properties, etc.)
+		const viewType = leaf.getViewState().type;
+		if (viewType !== "markdown" && viewType !== "file" && viewType !== "excalidraw") return false;
 		return true;
 	}
 
