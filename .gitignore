@@ -3,3 +3,4 @@ main.js
 *.js.map
 Scan-Results-*.md
 Review-Results-*.md
+.vscode/settings.json
