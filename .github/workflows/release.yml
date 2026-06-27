@@ -1,6 +1,11 @@
 name: Release Obsidian Plugin
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. 1.1.3)"
+        required: true
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
@@ -30,7 +35,12 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Extract release notes
         run: |
