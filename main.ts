@@ -343,12 +343,6 @@ class ColorTabSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	// Override so the toggle's setControlValue also re-applies colors
-	async setControlValue(key: string, value: unknown): Promise<void> {
-		await super.setControlValue(key, value);
-		this.plugin.applyAllColors();
-	}
-
 	// Primary: used by Obsidian 1.13.0+. When this returns a non-empty array,
 	// display() is not called by the framework.
 	getSettingDefinitions() {
@@ -424,20 +418,39 @@ class ColorTabSettingTab extends PluginSettingTab {
 			{
 				name: "Auto-pin colored tabs",
 				desc: "When enabled, applying a tab color pins the tab and removing color unpins it.",
-				control: { type: "toggle" as const, key: "autoPinColoredTabs" },
+				render: (setting: Setting) => {
+					setting.addToggle((toggle) => {
+						toggle
+							.setValue(this.plugin.settings.autoPinColoredTabs)
+							.onChange(async (value) => {
+								this.plugin.settings.autoPinColoredTabs = value;
+								await this.plugin.saveSettings();
+								this.plugin.applyAllColors();
+							});
+					});
+				},
 			},
 			{
 				name: "Prevent Tab Duplication",
 				desc: "When enabled, opening an already-open file will focus on the existing tab instead of creating a duplicate.",
-				control: { type: "toggle" as const, key: "preventTabDuplication" },
+				render: (setting: Setting) => {
+					setting.addToggle((toggle) => {
+						toggle
+							.setValue(this.plugin.settings.preventTabDuplication)
+							.onChange(async (value) => {
+								this.plugin.settings.preventTabDuplication = value;
+								await this.plugin.saveSettings();
+							});
+					});
+				},
 			},
 			{
 				name: "Reset to defaults",
 				desc: "Restore the original pastel color palette.",
 				render: (setting: Setting) => {
 					setting.addButton((btn) => {
+						btn.buttonEl.addClass("mod-destructive");
 						btn.setButtonText("Reset")
-							.setDestructive()
 							.onClick(async () => {
 								this.plugin.settings.colors = DEFAULT_COLORS.map(
 									(c) => ({ ...c })
@@ -448,7 +461,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 									DEFAULT_SETTINGS.preventTabDuplication;
 								await this.plugin.saveSettings();
 								this.plugin.applyAllColors();
-								this.update();
+								this.display();
 							});
 					});
 				},
@@ -554,8 +567,8 @@ class ColorTabSettingTab extends PluginSettingTab {
 			.setName("Reset to defaults")
 			.setDesc("Restore the original pastel color palette.")
 			.addButton((btn) => {
+				btn.buttonEl.addClass("mod-destructive");
 				btn.setButtonText("Reset")
-					.setDestructive()
 					.onClick(async () => {
 						this.plugin.settings.colors = DEFAULT_COLORS.map(
 							(c) => ({ ...c })
