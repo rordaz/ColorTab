@@ -1,5 +1,16 @@
 # Release Notes
 
+## [1.1.4] - 2026-06-29
+
+### 🐛 Fixes
+
+- **Settings Toggle Reliability** – Replaced framework-managed toggle controls with explicit `addToggle` rendering, ensuring `onChange` callbacks fire correctly across all Obsidian versions
+- **Reset Button Styling** – Replaced deprecated `.setDestructive()` API call with direct CSS class assignment (`mod-destructive`) for broader Obsidian compatibility
+- **Settings Page Refresh** – Fixed settings page not properly refreshing after "Reset to Defaults" action (`this.update()` → `this.display()`)
+- **Redundant Color Re-application** – Removed `setControlValue` override that triggered unnecessary color re-application on every settings toggle change
+
+---
+
 ## [1.1.3] - 2026-06-27
 
 ### ✨ Improvements
