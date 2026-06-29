@@ -5,6 +5,7 @@
 ### ✨ Improvements
 
 - **Broader Obsidian Compatibility** – Lowered minimum required Obsidian version from `1.13.0` to `1.12.0`, allowing the plugin to be installed on Obsidian 1.12.x
+- **Release Automation** – GitHub Releases now use the matching section from this repository's release notes as the published release description
 
 ---
 
