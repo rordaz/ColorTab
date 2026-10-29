@@ -6,6 +6,13 @@ import {
 	Setting,
 	WorkspaceLeaf,
 } from "obsidian";
+import {
+	darkenColor,
+	ensureTextContrast,
+	parseHexColor,
+	toCssColor,
+} from "./color-contrast";
+import type { RgbColor, RgbaColor } from "./color-contrast";
 
 interface ColorEntry {
 	name: string;
@@ -17,7 +24,18 @@ interface ColorTabSettings {
 	/** Maps file path → hex color */
 	fileColors: Record<string, string>;
 	autoPinColoredTabs: boolean;
+	ensureTextContrast: boolean;
 	preventTabDuplication: boolean;
+}
+
+interface ThemeTabTextColors {
+	normal: RgbaColor;
+	focused: RgbaColor;
+	hover: RgbaColor;
+	focusedHover: RgbaColor;
+	active: RgbaColor;
+	focusedActive: RgbaColor;
+	focusedActiveCurrent: RgbaColor;
 }
 
 const DEFAULT_COLORS: ColorEntry[] = [
@@ -32,8 +50,22 @@ const DEFAULT_SETTINGS: ColorTabSettings = {
 	colors: DEFAULT_COLORS,
 	fileColors: {},
 	autoPinColoredTabs: true,
+	ensureTextContrast: false,
 	preventTabDuplication: true,
 };
+
+const TEXT_CONTRAST_CLASS = "color-tab-wcag";
+const TEXT_CONTRAST_PROPERTIES = [
+	"--tab-bg-color-hover",
+	"--tab-bg-color-active",
+	"--color-tab-text",
+	"--color-tab-text-focused",
+	"--color-tab-text-hover",
+	"--color-tab-text-focused-hover",
+	"--color-tab-text-active",
+	"--color-tab-text-focused-active",
+	"--color-tab-text-focused-active-current",
+] as const;
 
 export default class ColorTabPlugin extends Plugin {
 	settings!: ColorTabSettings;
@@ -79,6 +111,13 @@ export default class ColorTabPlugin extends Plugin {
 				if (this.settings.preventTabDuplication) {
 					this.handleDuplicateTabs();
 				}
+			})
+		);
+
+		// Theme changes can alter the preferred tab text colors.
+		this.registerEvent(
+			this.app.workspace.on("css-change", () => {
+				if (this.settings.ensureTextContrast) this.applyAllColors();
 			})
 		);
 
@@ -207,17 +246,171 @@ export default class ColorTabPlugin extends Plugin {
 
 	applyColorToLeaf(leaf: WorkspaceLeaf, color: string | null) {
 		const tabHeader = (
-			leaf as unknown as { tabHeaderEl: HTMLElement }
+			leaf as unknown as { tabHeaderEl?: HTMLElement }
 		).tabHeaderEl;
 		if (!tabHeader) return;
 
+		this.clearTextContrastStyles(tabHeader);
 		if (color) {
 			tabHeader.style.setProperty("--tab-bg-color", color);
 			tabHeader.classList.add("color-tab-colored");
+			if (this.settings.ensureTextContrast) {
+				this.applyTextContrastToTab(tabHeader, color);
+			}
 		} else {
 			tabHeader.style.removeProperty("--tab-bg-color");
 			tabHeader.classList.remove("color-tab-colored");
 		}
+	}
+
+	private applyTextContrastToTab(tabHeader: HTMLElement, color: string) {
+		const background = parseHexColor(color);
+		const themeText = this.readThemeTabTextColors(tabHeader);
+		if (!background || !themeText) return;
+
+		const hoverBackground = darkenColor(background, 0.92);
+		// Active tabs retain their assigned color; only inactive hover is darkened.
+		const activeBackground = background;
+		const setTextColor = (
+			property: string,
+			preferred: RgbaColor,
+			stateBackground: RgbColor
+		) => {
+			tabHeader.style.setProperty(
+				property,
+				toCssColor(ensureTextContrast(preferred, stateBackground))
+			);
+		};
+
+		tabHeader.style.setProperty(
+			"--tab-bg-color-hover",
+			toCssColor({ ...hoverBackground, a: 1 })
+		);
+		tabHeader.style.setProperty(
+			"--tab-bg-color-active",
+			toCssColor({ ...activeBackground, a: 1 })
+		);
+		setTextColor("--color-tab-text", themeText.normal, background);
+		setTextColor(
+			"--color-tab-text-focused",
+			themeText.focused,
+			background
+		);
+		setTextColor(
+			"--color-tab-text-hover",
+			themeText.hover,
+			hoverBackground
+		);
+		setTextColor(
+			"--color-tab-text-focused-hover",
+			themeText.focusedHover,
+			hoverBackground
+		);
+		setTextColor(
+			"--color-tab-text-active",
+			themeText.active,
+			activeBackground
+		);
+		setTextColor(
+			"--color-tab-text-focused-active",
+			themeText.focusedActive,
+			activeBackground
+		);
+		setTextColor(
+			"--color-tab-text-focused-active-current",
+			themeText.focusedActiveCurrent,
+			activeBackground
+		);
+		tabHeader.classList.add(TEXT_CONTRAST_CLASS);
+	}
+
+	private clearTextContrastStyles(tabHeader: HTMLElement) {
+		tabHeader.classList.remove(TEXT_CONTRAST_CLASS);
+		TEXT_CONTRAST_PROPERTIES.forEach((property) => {
+			tabHeader.style.removeProperty(property);
+		});
+	}
+
+	private readThemeTabTextColors(
+		tabHeader: HTMLElement
+	): ThemeTabTextColors | null {
+		const titleEl = tabHeader.querySelector<HTMLElement>(
+			".workspace-tab-header-inner-title"
+		);
+		const doc = tabHeader.ownerDocument;
+		const view = doc.defaultView;
+		if (!titleEl || !view) return null;
+
+		const canvas = doc.createElement("canvas");
+		canvas.width = 1;
+		canvas.height = 1;
+		const context = canvas.getContext("2d");
+		if (!context) return null;
+
+		const currentCssColor = view.getComputedStyle(titleEl).color;
+		const currentColor = this.readCssColor(context, currentCssColor);
+		const probe = doc.createElement("span");
+		probe.style.position = "absolute";
+		probe.style.visibility = "hidden";
+		probe.style.pointerEvents = "none";
+		tabHeader.appendChild(probe);
+
+		const resolveThemeVariable = (property: string): RgbaColor => {
+			probe.style.color = `var(${property}, ${currentCssColor})`;
+			const resolved = view.getComputedStyle(probe).color;
+			return this.readCssColor(context, resolved) ?? currentColor;
+		};
+		const normal = resolveThemeVariable("--tab-text-color");
+		const focused = resolveThemeVariable("--tab-text-color-focused");
+		const colors: ThemeTabTextColors = {
+			normal,
+			focused,
+			hover: normal,
+			focusedHover: focused,
+			active: resolveThemeVariable("--tab-text-color-active"),
+			focusedActive: resolveThemeVariable(
+				"--tab-text-color-focused-active"
+			),
+			focusedActiveCurrent: resolveThemeVariable(
+				"--tab-text-color-focused-active-current"
+			),
+		};
+		probe.remove();
+
+		// Prefer a theme's direct selector override for the tab's current state.
+		const isFocused = doc.body.classList.contains("is-focused");
+		const isActive = tabHeader.classList.contains("is-active");
+		const isHovered = tabHeader.matches(":hover");
+		if (isActive) {
+			if (isFocused && tabHeader.closest(".mod-active")) {
+				colors.focusedActiveCurrent = currentColor;
+			} else if (isFocused) {
+				colors.focusedActive = currentColor;
+			} else {
+				colors.active = currentColor;
+			}
+		} else if (isFocused && isHovered) {
+			colors.focusedHover = currentColor;
+		} else if (isFocused) {
+			colors.focused = currentColor;
+		} else if (isHovered) {
+			colors.hover = currentColor;
+		} else {
+			colors.normal = currentColor;
+		}
+
+		return colors;
+	}
+
+	private readCssColor(
+		context: CanvasRenderingContext2D,
+		cssColor: string
+	): RgbaColor {
+		context.clearRect(0, 0, 1, 1);
+		context.fillStyle = cssColor;
+		context.fillRect(0, 0, 1, 1);
+		const [r, g, b, alpha] = context.getImageData(0, 0, 1, 1).data;
+		return { r, g, b, a: alpha / 255 };
 	}
 
 	applyAllColors() {
@@ -330,6 +523,7 @@ export default class ColorTabPlugin extends Plugin {
 			colors: saved?.colors ?? DEFAULT_COLORS.map((c) => ({ ...c })),
 			fileColors: saved?.fileColors ?? {},
 			autoPinColoredTabs: saved?.autoPinColoredTabs ?? DEFAULT_SETTINGS.autoPinColoredTabs,
+			ensureTextContrast: saved?.ensureTextContrast ?? DEFAULT_SETTINGS.ensureTextContrast,
 			preventTabDuplication: saved?.preventTabDuplication ?? DEFAULT_SETTINGS.preventTabDuplication,
 		};
 	}
@@ -437,6 +631,21 @@ class ColorTabSettingTab extends PluginSettingTab {
 				},
 			},
 			{
+				name: "Ensure text complies with WCAG 2.1 contrast ratio",
+				desc: "Automatically adjusts colored tab titles to meet the WCAG 2.1 AA minimum contrast ratio of 4.5:1.",
+				render: (setting: Setting) => {
+					setting.addToggle((toggle) => {
+						toggle
+							.setValue(this.plugin.settings.ensureTextContrast)
+							.onChange(async (value) => {
+								this.plugin.settings.ensureTextContrast = value;
+								await this.plugin.saveSettings();
+								this.plugin.applyAllColors();
+							});
+					});
+				},
+			},
+			{
 				name: "Prevent Tab Duplication",
 				desc: "When enabled, opening an already-open file will focus on the existing tab instead of creating a duplicate.",
 				render: (setting: Setting) => {
@@ -463,6 +672,8 @@ class ColorTabSettingTab extends PluginSettingTab {
 								);
 								this.plugin.settings.autoPinColoredTabs =
 									DEFAULT_SETTINGS.autoPinColoredTabs;
+								this.plugin.settings.ensureTextContrast =
+									DEFAULT_SETTINGS.ensureTextContrast;
 								this.plugin.settings.preventTabDuplication =
 									DEFAULT_SETTINGS.preventTabDuplication;
 								await this.plugin.saveSettings();
@@ -556,6 +767,21 @@ class ColorTabSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setName("Ensure text complies with WCAG 2.1 contrast ratio")
+			.setDesc(
+				"Automatically adjusts colored tab titles to meet the WCAG 2.1 AA minimum contrast ratio of 4.5:1."
+			)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.ensureTextContrast)
+					.onChange(async (value) => {
+						this.plugin.settings.ensureTextContrast = value;
+						await this.plugin.saveSettings();
+						this.plugin.applyAllColors();
+					});
+			});
+
+		new Setting(containerEl)
 			.setName("Prevent Tab Duplication")
 			.setDesc(
 				"When enabled, opening an already-open file will focus on the existing tab instead of creating a duplicate."
@@ -581,6 +807,8 @@ class ColorTabSettingTab extends PluginSettingTab {
 						);
 						this.plugin.settings.autoPinColoredTabs =
 							DEFAULT_SETTINGS.autoPinColoredTabs;
+						this.plugin.settings.ensureTextContrast =
+							DEFAULT_SETTINGS.ensureTextContrast;
 						this.plugin.settings.preventTabDuplication =
 							DEFAULT_SETTINGS.preventTabDuplication;
 						await this.plugin.saveSettings();
