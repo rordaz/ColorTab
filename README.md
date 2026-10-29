@@ -45,6 +45,14 @@ Examples of how people use it:
 3. Scroll to the bottom — you will see a separator followed by the 5 color options.
 4. Click a color name to apply it. The tab background and title will update immediately.
 
+### Choose a shade
+
+1. Right-click a tab that already has a color.
+2. Open the submenu beside its selected palette color, such as **Red**.
+3. Choose from three darker shades, the configured base color, or three lighter shades.
+
+The submenu remains attached to that palette color after choosing a shade and marks the selected shade with a check.
+
 ### Remove a color
 
 1. Right-click the colored tab.
@@ -54,9 +62,14 @@ Examples of how people use it:
 
 1. Go to **Settings → Color Tab**.
 2. Each of the 5 color slots has a **name field** and a **color picker**.
-3. Toggle **Prevent Tab Duplication** to keep only one tab per file.
-4. Changes take effect immediately — open tabs update live.
-5. Click **Reset** to restore the default pastel palette.
+3. Toggle **Ensure text complies with WCAG 2.1 contrast ratio** to maintain at least 4.5:1 contrast for colored tab titles.
+4. Toggle **Prevent Tab Duplication** to keep only one tab per file.
+5. Changes take effect immediately — open tabs update live.
+6. Click **Reset** to restore the default pastel palette.
+
+## Accessible tab text
+
+The optional WCAG setting keeps the current Obsidian theme's text color whenever it already has sufficient contrast. Otherwise, Color Tab adjusts its lightness while preserving saturation and hue wherever possible. Inactive, hovered, and active tab titles are evaluated separately; tab icons are not changed.
 
 ## Default colors
 
