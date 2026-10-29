@@ -1,5 +1,24 @@
 # Release Notes
 
+## [1.2.0] - 2026-10-29
+
+### ✨ Features
+
+- **Color Shade Submenu** – Choose darker or lighter shades from the selected palette color's tab context-menu submenu.
+- **WCAG 2.1 Text Contrast** – Optionally ensure colored tab titles meet the 4.5:1 AA contrast ratio while preserving theme colors when they already pass.
+- **Remove Color on Closing** – Optional setting that removes a file's saved tab color when its last open tab closes. The color remains while another tab for the same file is open.
+
+### 🐛 Fixes
+
+- **Inactive Tab Color Restoration** – Restore saved colors for background tabs during startup, including tabs Obsidian has not loaded yet.
+- **Modifier-Click History Navigation** – Preserve Ctrl/Cmd-click Back and Forward navigation into a new tab while duplicate-tab prevention is enabled.
+
+### 🙏 Contributors
+
+Thanks to [@xRyul](https://github.com/xRyul) for [PR #2](https://github.com/rordaz/ColorTab/pull/2), [PR #3](https://github.com/rordaz/ColorTab/pull/3), [PR #4](https://github.com/rordaz/ColorTab/pull/4), and [PR #5](https://github.com/rordaz/ColorTab/pull/5).
+
+---
+
 ## [1.1.4] - 2026-06-29
 
 ### 🐛 Fixes

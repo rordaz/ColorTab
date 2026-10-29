@@ -45,6 +45,8 @@ Examples of how people use it:
 3. Scroll to the bottom — you will see a separator followed by the 5 color options.
 4. Click a color name to apply it. The tab background and title will update immediately.
 
+Color assignments are saved and restored after restart, including for inactive tabs.
+
 ### Choose a shade
 
 1. Right-click a tab that already has a color.
@@ -58,14 +60,19 @@ The submenu remains attached to that palette color after choosing a shade and ma
 1. Right-click the colored tab.
 2. Click **Remove tab color** at the bottom of the menu.
 
+### Open a history entry in a new tab
+
+Hold `Ctrl` (Windows/Linux) or `Cmd` (macOS) while clicking Obsidian's Back or Forward history arrow. The history destination opens in a new tab without interrupting navigation.
+
 ### Customize your colors
 
 1. Go to **Settings → Color Tab**.
 2. Each of the 5 color slots has a **name field** and a **color picker**.
 3. Toggle **Ensure text complies with WCAG 2.1 contrast ratio** to maintain at least 4.5:1 contrast for colored tab titles.
 4. Toggle **Prevent Tab Duplication** to keep only one tab per file.
-5. Changes take effect immediately — open tabs update live.
-6. Click **Reset** to restore the default pastel palette.
+5. Toggle **Remove color on closing** to remove a file's saved color when its last open tab closes. Its color is retained while another tab for that file remains open.
+6. Changes take effect immediately — open tabs update live.
+7. Click **Reset** to restore the default pastel palette.
 
 ## Accessible tab text
 
@@ -86,3 +93,7 @@ All defaults are soft pastels so they remain readable in both light and dark the
 ## License
 
 MIT
+
+## Contributors
+
+Thanks to [@xRyul](https://github.com/xRyul) for the startup restoration, WCAG contrast, color shade submenu, and modifier-click navigation contributions in [PR #2](https://github.com/rordaz/ColorTab/pull/2), [PR #3](https://github.com/rordaz/ColorTab/pull/3), [PR #4](https://github.com/rordaz/ColorTab/pull/4), and [PR #5](https://github.com/rordaz/ColorTab/pull/5).

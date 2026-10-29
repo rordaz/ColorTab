@@ -30,6 +30,7 @@ interface ColorTabSettings {
 	autoPinColoredTabs: boolean;
 	ensureTextContrast: boolean;
 	preventTabDuplication: boolean;
+	removeColorOnClosing: boolean;
 }
 
 interface ThemeTabTextColors {
@@ -57,6 +58,7 @@ const DEFAULT_SETTINGS: ColorTabSettings = {
 	autoPinColoredTabs: true,
 	ensureTextContrast: false,
 	preventTabDuplication: true,
+	removeColorOnClosing: false,
 };
 
 const TEXT_CONTRAST_CLASS = "color-tab-wcag";
@@ -74,6 +76,7 @@ const TEXT_CONTRAST_PROPERTIES = [
 
 export default class ColorTabPlugin extends Plugin {
 	settings!: ColorTabSettings;
+	private trackedLeaves = new Map<WorkspaceLeaf, string>();
 
 	async onload() {
 		await this.loadSettings();
@@ -470,6 +473,7 @@ export default class ColorTabPlugin extends Plugin {
 	}
 
 	applyAllColors() {
+		const currentLeafPaths = new Map<WorkspaceLeaf, string>();
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			if (!this.isColorableLeaf(leaf)) {
 				// Strip any color/pin previously applied by this plugin to sidebar leaves
@@ -483,12 +487,29 @@ export default class ColorTabPlugin extends Plugin {
 				return;
 			}
 			const path = this.getFilePath(leaf)!;
+			currentLeafPaths.set(leaf, path);
 			const color = this.settings.fileColors[path] ?? null;
 			this.applyColorToLeaf(leaf, color);
 			if (this.settings.autoPinColoredTabs && color) {
 				leaf.setPinned(true);
 			}
 		});
+
+		if (this.settings.removeColorOnClosing) {
+			const currentPaths = new Set(currentLeafPaths.values());
+			let settingsChanged = false;
+			this.trackedLeaves.forEach((path, leaf) => {
+				if (!currentLeafPaths.has(leaf) && !currentPaths.has(path)) {
+					if (path in this.settings.fileColors) {
+						delete this.settings.fileColors[path];
+						delete this.settings.fileColorSlots[path];
+						settingsChanged = true;
+					}
+				}
+			});
+			if (settingsChanged) void this.saveSettings();
+		}
+		this.trackedLeaves = currentLeafPaths;
 	}
 
 	// ── Tab duplication prevention ────────────────────────────────────────────
@@ -590,6 +611,7 @@ export default class ColorTabPlugin extends Plugin {
 			autoPinColoredTabs: saved?.autoPinColoredTabs ?? DEFAULT_SETTINGS.autoPinColoredTabs,
 			ensureTextContrast: saved?.ensureTextContrast ?? DEFAULT_SETTINGS.ensureTextContrast,
 			preventTabDuplication: saved?.preventTabDuplication ?? DEFAULT_SETTINGS.preventTabDuplication,
+			removeColorOnClosing: saved?.removeColorOnClosing ?? DEFAULT_SETTINGS.removeColorOnClosing,
 		};
 	}
 
@@ -696,6 +718,20 @@ class ColorTabSettingTab extends PluginSettingTab {
 				},
 			},
 			{
+				name: "Remove color on closing",
+				desc: "When enabled, closing the last tab for a file removes its saved color. Colors remain if another tab for that file is open.",
+				render: (setting: Setting) => {
+					setting.addToggle((toggle) => {
+						toggle
+							.setValue(this.plugin.settings.removeColorOnClosing)
+							.onChange(async (value) => {
+								this.plugin.settings.removeColorOnClosing = value;
+								await this.plugin.saveSettings();
+							});
+					});
+				},
+			},
+			{
 				name: "Ensure text complies with WCAG 2.1 contrast ratio",
 				desc: "Automatically adjusts colored tab titles to meet the WCAG 2.1 AA minimum contrast ratio of 4.5:1.",
 				render: (setting: Setting) => {
@@ -741,6 +777,8 @@ class ColorTabSettingTab extends PluginSettingTab {
 									DEFAULT_SETTINGS.ensureTextContrast;
 								this.plugin.settings.preventTabDuplication =
 									DEFAULT_SETTINGS.preventTabDuplication;
+								this.plugin.settings.removeColorOnClosing =
+									DEFAULT_SETTINGS.removeColorOnClosing;
 								await this.plugin.saveSettings();
 								this.plugin.applyAllColors();
 								this.display();
@@ -832,6 +870,20 @@ class ColorTabSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setName("Remove color on closing")
+			.setDesc(
+				"When enabled, closing the last tab for a file removes its saved color. Colors remain if another tab for that file is open."
+			)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.removeColorOnClosing)
+					.onChange(async (value) => {
+						this.plugin.settings.removeColorOnClosing = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
 			.setName("Ensure text complies with WCAG 2.1 contrast ratio")
 			.setDesc(
 				"Automatically adjusts colored tab titles to meet the WCAG 2.1 AA minimum contrast ratio of 4.5:1."
@@ -876,6 +928,8 @@ class ColorTabSettingTab extends PluginSettingTab {
 							DEFAULT_SETTINGS.ensureTextContrast;
 						this.plugin.settings.preventTabDuplication =
 							DEFAULT_SETTINGS.preventTabDuplication;
+						this.plugin.settings.removeColorOnClosing =
+							DEFAULT_SETTINGS.removeColorOnClosing;
 						await this.plugin.saveSettings();
 						this.plugin.applyAllColors();
 						this.display();
