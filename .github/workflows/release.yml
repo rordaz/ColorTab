@@ -44,7 +44,7 @@ jobs:
 
       - name: Extract release notes
         run: |
-          awk -v version="${GITHUB_REF_NAME}" '
+          awk -v version="${{ steps.version.outputs.version }}" '
             BEGIN { capture = 0 }
             $0 ~ "^## \\[" version "\\]" { capture = 1 }
             capture && /^---$/ { exit }
