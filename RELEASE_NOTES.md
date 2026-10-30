@@ -1,5 +1,13 @@
 # Release Notes
 
+## [1.2.1] - 2026-10-29
+
+### 🐛 Fixes
+
+- **Plugin Guideline Compliance** – Remove debug logging, use Obsidian DOM helpers for dynamic elements and CSS helpers for runtime styles, and use explicit hex formatting for generated shades.
+
+---
+
 ## [1.2.0] - 2026-10-29
 
 ### ✨ Features

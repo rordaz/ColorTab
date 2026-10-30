@@ -88,15 +88,6 @@ export default class ColorTabPlugin extends Plugin {
 				"file-menu",
 				(menu, _file, source, leaf) => {
 					if (source !== "tab-header" || !leaf) return;
-					console.log("[ColorTab DEBUG]", {
-						source,
-						filePath: this.getFilePath(leaf),
-						viewType: leaf.getViewState().type,
-						isColorable: this.isColorableLeaf(leaf),
-						root: leaf.getRoot(),
-						wsLeftSplit: (this.app.workspace as unknown as { leftSplit: unknown }).leftSplit,
-						wsRightSplit: (this.app.workspace as unknown as { rightSplit: unknown }).rightSplit,
-					});
 					this.addColorMenuItems(menu, leaf);
 				}
 			)
@@ -237,7 +228,7 @@ export default class ColorTabPlugin extends Plugin {
 		if (!el) return;
 
 		const swatch = el.createEl("span", { cls: "color-tab-swatch" });
-		swatch.style.setProperty("--swatch-color", color);
+		swatch.setCssProps({ "--swatch-color": color });
 	}
 
 	// ── Color application ─────────────────────────────────────────────────────
@@ -311,7 +302,7 @@ export default class ColorTabPlugin extends Plugin {
 
 		this.clearTextContrastStyles(tabHeader);
 		if (color) {
-			tabHeader.style.setProperty("--tab-bg-color", color);
+			tabHeader.setCssProps({ "--tab-bg-color": color });
 			tabHeader.classList.add("color-tab-colored");
 			if (this.settings.ensureTextContrast) {
 				this.applyTextContrastToTab(tabHeader, color);
@@ -335,20 +326,15 @@ export default class ColorTabPlugin extends Plugin {
 			preferred: RgbaColor,
 			stateBackground: RgbColor
 		) => {
-			tabHeader.style.setProperty(
-				property,
-				toCssColor(ensureTextContrast(preferred, stateBackground))
-			);
+			tabHeader.setCssProps({
+				[property]: toCssColor(ensureTextContrast(preferred, stateBackground)),
+			});
 		};
 
-		tabHeader.style.setProperty(
-			"--tab-bg-color-hover",
-			toCssColor({ ...hoverBackground, a: 1 })
-		);
-		tabHeader.style.setProperty(
-			"--tab-bg-color-active",
-			toCssColor({ ...activeBackground, a: 1 })
-		);
+		tabHeader.setCssProps({
+			"--tab-bg-color-hover": toCssColor({ ...hoverBackground, a: 1 }),
+			"--tab-bg-color-active": toCssColor({ ...activeBackground, a: 1 }),
+		});
 		setTextColor("--color-tab-text", themeText.normal, background);
 		setTextColor(
 			"--color-tab-text-focused",
@@ -400,22 +386,33 @@ export default class ColorTabPlugin extends Plugin {
 		const view = doc.defaultView;
 		if (!titleEl || !view) return null;
 
-		const canvas = doc.createElement("canvas");
+		const canvas = doc.body.createEl("canvas");
 		canvas.width = 1;
 		canvas.height = 1;
+		canvas.setCssStyles({
+			position: "absolute",
+			visibility: "hidden",
+			pointerEvents: "none",
+		});
 		const context = canvas.getContext("2d");
-		if (!context) return null;
+		if (!context) {
+			canvas.remove();
+			return null;
+		}
 
 		const currentCssColor = view.getComputedStyle(titleEl).color;
 		const currentColor = this.readCssColor(context, currentCssColor);
-		const probe = doc.createElement("span");
-		probe.style.position = "absolute";
-		probe.style.visibility = "hidden";
-		probe.style.pointerEvents = "none";
-		tabHeader.appendChild(probe);
+		const probe = tabHeader.createEl("span");
+		probe.setCssStyles({
+			position: "absolute",
+			visibility: "hidden",
+			pointerEvents: "none",
+		});
 
 		const resolveThemeVariable = (property: string): RgbaColor => {
-			probe.style.color = `var(${property}, ${currentCssColor})`;
+			probe.setCssProps({
+				color: `var(${property}, ${currentCssColor})`,
+			});
 			const resolved = view.getComputedStyle(probe).color;
 			return this.readCssColor(context, resolved) ?? currentColor;
 		};
@@ -435,6 +432,7 @@ export default class ColorTabPlugin extends Plugin {
 			),
 		};
 		probe.remove();
+		canvas.remove();
 
 		// Prefer a theme's direct selector override for the tab's current state.
 		const isFocused = doc.body.classList.contains("is-focused");
@@ -663,7 +661,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 								this.plugin.applyAllColors();
 								if (colorPickerEl) colorPickerEl.value = normalized;
-								if (swatchEl) swatchEl.style.backgroundColor = normalized;
+								if (swatchEl) swatchEl.setCssProps({ "--swatch-color": normalized });
 							});
 						hex.inputEl.setCssStyles({ width: "88px", fontFamily: "monospace" });
 						hex.inputEl.setAttribute("aria-label", "Hex color code");
@@ -678,7 +676,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 								this.plugin.applyAllColors();
 								if (hexInputEl) hexInputEl.value = value;
-								if (swatchEl) swatchEl.style.backgroundColor = value;
+								if (swatchEl) swatchEl.setCssProps({ "--swatch-color": value });
 							});
 					});
 
@@ -686,7 +684,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 				swatchEl = setting.controlEl.createEl("span", {
 					cls: "color-tab-settings-swatch",
 				});
-				swatchEl.style.backgroundColor = entry.color;
+				swatchEl.setCssProps({ "--swatch-color": entry.color });
 
 				// Grab the native <input type="color"> for cross-sync
 				colorPickerEl = setting.controlEl.querySelector(
@@ -695,7 +693,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 
 				colorPickerEl?.addEventListener("input", () => {
 					if (hexInputEl) hexInputEl.value = colorPickerEl.value;
-					if (swatchEl) swatchEl.style.backgroundColor = colorPickerEl.value;
+					if (swatchEl) swatchEl.setCssProps({ "--swatch-color": colorPickerEl.value });
 				});
 			},
 		}));
@@ -821,7 +819,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							this.plugin.applyAllColors();
 							if (colorPickerEl) colorPickerEl.value = normalized;
-							if (swatchEl) swatchEl.style.backgroundColor = normalized;
+							if (swatchEl) swatchEl.setCssProps({ "--swatch-color": normalized });
 						});
 					hex.inputEl.setCssStyles({ width: "88px", fontFamily: "monospace" });
 					hex.inputEl.setAttribute("aria-label", "Hex color code");
@@ -835,14 +833,14 @@ class ColorTabSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							this.plugin.applyAllColors();
 							if (hexInputEl) hexInputEl.value = value;
-							if (swatchEl) swatchEl.style.backgroundColor = value;
+							if (swatchEl) swatchEl.setCssProps({ "--swatch-color": value });
 						});
 				});
 
 			swatchEl = setting.controlEl.createEl("span", {
 				cls: "color-tab-settings-swatch",
 			});
-			swatchEl.style.backgroundColor = entry.color;
+			swatchEl.setCssProps({ "--swatch-color": entry.color });
 
 			colorPickerEl = setting.controlEl.querySelector(
 				"input[type=color]"
@@ -850,7 +848,7 @@ class ColorTabSettingTab extends PluginSettingTab {
 
 			colorPickerEl?.addEventListener("input", () => {
 				if (hexInputEl) hexInputEl.value = colorPickerEl.value;
-				if (swatchEl) swatchEl.style.backgroundColor = colorPickerEl.value;
+				if (swatchEl) swatchEl.setCssProps({ "--swatch-color": colorPickerEl.value });
 			});
 		});
 

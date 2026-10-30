@@ -27,11 +27,18 @@ function mixChannel(channel: number, target: number, amount: number): number {
 	return Math.round(channel + (target - channel) * amount);
 }
 
+function toHexByte(value: number): string {
+	const hexDigits = "0123456789ABCDEF";
+	const high = Math.floor(value / 16);
+	const low = value % 16;
+	return hexDigits.charAt(high) + hexDigits.charAt(low);
+}
+
 function mixColor(color: RgbColor, target: number, amount: number): string {
-	return `#${[color.r, color.g, color.b]
-		.map((channel) => mixChannel(channel, target, amount))
-		.map((channel) => channel.toString(16).padStart(2, "0"))
-		.join("")}`.toUpperCase();
+	const red = toHexByte(mixChannel(color.r, target, amount));
+	const green = toHexByte(mixChannel(color.g, target, amount));
+	const blue = toHexByte(mixChannel(color.b, target, amount));
+	return `#${red}${green}${blue}`;
 }
 
 function createShade(
