@@ -2,9 +2,11 @@ import {
 	App,
 	Menu,
 	MenuItem,
+	Notice,
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	TFile,
 	WorkspaceLeaf,
 } from "obsidian";
 import {
@@ -253,6 +255,10 @@ export default class ColorTabPlugin extends Plugin {
 			} else {
 				this.settings.fileColorSlots[path] = resolvedColorSlot;
 			}
+			const colorName = resolvedColorSlot === null
+				? color
+				: this.settings.colors[resolvedColorSlot].name.trim().toLowerCase() || color;
+			void this.updateColorProperty(path, colorName);
 			void this.saveSettings();
 		}
 		this.applyColorToLeaf(leaf, color);
@@ -268,6 +274,7 @@ export default class ColorTabPlugin extends Plugin {
 		if (path) {
 			delete this.settings.fileColors[path];
 			delete this.settings.fileColorSlots[path];
+			void this.updateColorProperty(path, null);
 			void this.saveSettings();
 		}
 		this.applyColorToLeaf(leaf, null);
@@ -280,6 +287,7 @@ export default class ColorTabPlugin extends Plugin {
 		const coloredPaths = new Set(Object.keys(this.settings.fileColors));
 		this.settings.fileColors = {};
 		this.settings.fileColorSlots = {};
+		coloredPaths.forEach((path) => void this.updateColorProperty(path, null));
 		void this.saveSettings();
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			this.applyColorToLeaf(leaf, null);
@@ -501,6 +509,7 @@ export default class ColorTabPlugin extends Plugin {
 					if (path in this.settings.fileColors) {
 						delete this.settings.fileColors[path];
 						delete this.settings.fileColorSlots[path];
+						void this.updateColorProperty(path, null);
 						settingsChanged = true;
 					}
 				}
@@ -561,6 +570,19 @@ export default class ColorTabPlugin extends Plugin {
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	private async updateColorProperty(path: string, color: string | null) {
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (!(file instanceof TFile) || file.extension !== "md") return;
+
+		try {
+			await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+				frontmatter["color-tab"] = color;
+			});
+		} catch {
+			new Notice(`Color Tab: could not update the color-tab property in ${path}.`);
+		}
+	}
 
 	private getFilePath(leaf: WorkspaceLeaf): string | null {
 		// Loaded views expose their file directly.

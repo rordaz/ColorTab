@@ -1,5 +1,13 @@
 # Release Notes
 
+## [1.3.0] - 2026-11-06
+
+### Features
+
+- **YAML Color Property** - Assigning a tab color writes its lowercase palette name (for example, `color-tab: red`) to Markdown frontmatter. Removing the color keeps the property but unsets its value, including remove-all and automatic removal on closing. Non-Markdown files are not modified.
+
+---
+
 ## [1.2.1] - 2026-10-29
 
 ### 🐛 Fixes

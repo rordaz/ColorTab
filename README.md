@@ -47,6 +47,16 @@ Examples of how people use it:
 
 Color assignments are saved and restored after restart, including for inactive tabs.
 
+For Markdown notes, assigning a color also writes its lowercase palette name to YAML frontmatter:
+
+```yaml
+---
+color-tab: red
+---
+```
+
+Custom palette names are supported, and shades use their palette's name. Other properties and the note body are preserved. Non-Markdown files are not modified.
+
 ### Choose a shade
 
 1. Right-click a tab that already has a color.
@@ -59,6 +69,16 @@ The submenu remains attached to that palette color after choosing a shade and ma
 
 1. Right-click the colored tab.
 2. Click **Remove tab color** at the bottom of the menu.
+
+The YAML property remains present but unset:
+
+```yaml
+---
+color-tab:
+---
+```
+
+This also applies to **Remove all tabs' color** and automatic removal on closing. The property is written when assigning or removing colors; editing it manually does not change the tab color.
 
 ### Open a history entry in a new tab
 
